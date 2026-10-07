@@ -1,0 +1,15 @@
+# INF-8239 · Unidad 03 · Algoritmos y características generativas
+
+**Autor académico:** Edwin Ramón José Nolasco
+
+Proyecto base para LAB08–LAB09. No sustituya la comprensión por ejecución mecánica.
+
+## Estudiante
+
+**Laudys Jerusi Zapata**
+
+**Programa:** Maestría en Ciencia de Datos e Inteligencia Artificial
+
+**Universidad:** Universidad Autónoma de Santo Domingo (UASD)
+
+**Asignatura:** Ciencia de Datos II

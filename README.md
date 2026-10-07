@@ -1,9 +1,18 @@
-# INF-8239 — Unidad 03 — Sistemas recomendadores
+# INF-8239 · Unidad 03 · Algoritmos y características generativas
 
-**Asignatura:** INF-8239 Ciencia de Datos II
-**Laboratorios:** U03.LAB08 y U03.LAB09
-**Tema:** MovieLens, popularidad, contenido, factorización colaborativa y recomendación híbrida
 **Autor académico:** Edwin Ramón José Nolasco
+
+Proyecto base para LAB08–LAB09. No sustituya la comprensión por ejecución mecánica.
+
+## Estudiante
+
+**Laudys Jerusi Zapata**
+
+**Programa:** Maestría en Ciencia de Datos e Inteligencia Artificial
+
+**Universidad:** Universidad Autónoma de Santo Domingo (UASD)
+
+**Asignatura:** Ciencia de Datos II
 
 ## 1. Objetivo
 
