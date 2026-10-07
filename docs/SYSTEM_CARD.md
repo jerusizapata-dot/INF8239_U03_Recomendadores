@@ -2,57 +2,150 @@
 
 ## Usuarios y propósito
 
-El sistema tiene como propósito experimental recomendar películas similares a una película seleccionada y generar un ranking de popularidad. El laboratorio está orientado a evaluar modelos reproducibles de recomendación sobre MovieLens Latest Small.
+El sistema tiene propósito académico y experimental: evaluar un pipeline reproducible de recomendación sobre MovieLens Latest Small, comparando popularidad, contenido, factorización colaborativa y una combinación híbrida.
 
-El sistema no predice de forma directa si una persona disfrutará una película. En el recomendador por contenido, la similitud representa únicamente la cercanía entre las características de género registradas para las películas.
+El sistema no predice de forma directa si una persona disfrutará una película. Las recomendaciones son resultados de evaluación offline y no predicciones universales de preferencias.
 
 ## Catálogo y candidatos
 
-El catálogo contiene **9,742 películas**, de las cuales **9,724** presentan al menos una valoración observada. Las películas se cargan desde `data/raw/ml-latest-small/movies.csv`.
+El catálogo contiene **9,742 películas**, de las cuales **9,724** presentan al menos una valoración observada.
 
-El recomendador por contenido considera las películas del catálogo como candidatas y excluye explícitamente la película utilizada como consulta del Top-k resultante.
+El recomendador por contenido utiliza el catálogo como conjunto de candidatos y excluye la película consultada. El modelo colaborativo excluye películas ya valoradas durante el entrenamiento. El híbrido combina las señales colaborativa y de contenido sobre los candidatos colaborativos.
 
 ## Señales utilizadas
 
-El modelo de contenido utiliza únicamente los géneros registrados en `movies.csv`. Los géneros separados por `|` se transforman en texto y se representan mediante TF-IDF.
+- **Valoraciones:** `userId`, `movieId`, `rating` y `timestamp`.
+- **Contenido:** géneros de `movies.csv`, transformados a texto y representados mediante TF-IDF.
+- **Popularidad:** cantidad y media de valoraciones para el baseline y el fallback de cold start.
 
-Las valoraciones (`rating`) y sus cantidades se utilizan para el baseline de popularidad suavizada, pero no forman parte de la similitud de contenido.
+No se utilizan atributos demográficos ni información sensible.
 
-## Modelos y fallback
+## División temporal
 
-Se implementan dos componentes principales en este laboratorio:
+La evaluación colaborativa utiliza **leave-one-out temporal por usuario**. Para cada usuario, las valoraciones se ordenan por `timestamp` y la última se reserva como prueba; las restantes se utilizan para entrenamiento.
 
-1. **Popularidad suavizada:** combina la media de valoración de cada película con la media global y pondera la cantidad de observaciones. Se utiliza un umbral basado en el percentil 80 del número de valoraciones.
-2. **Recomendación por contenido:** utiliza TF-IDF sobre los géneros y similitud coseno. El Top-10 excluye la película consultada.
+## Modelos
 
-El laboratorio no implementa todavía un fallback híbrido entre ambos modelos. La popularidad funciona como baseline independiente.
+### Popularidad suavizada
+
+Combina la media de cada película con la media global y pondera la cantidad de observaciones. El umbral mínimo se obtiene mediante el percentil 80 del número de valoraciones.
+
+### Recomendación por contenido
+
+Utiliza TF-IDF sobre los géneros y similitud coseno. El Top-10 excluye la película consultada.
+
+### Factorización colaborativa
+
+Se implementa factorización matricial mediante descenso de gradiente estocástico.
+
+Configuración base:
+
+- Factores: **20**.
+- Épocas: **12**.
+- Semilla: **42**.
+- Learning rate: `0.01`.
+- Regularización: `0.05`.
+
+La predicción utiliza la media global más el producto punto entre los factores latentes del usuario y de la película.
+
+### Modelo híbrido
+
+Combina señal colaborativa normalizada y similitud de contenido normalizada:
+
+`hybrid_score = alpha * collaborative_score + (1 - alpha) * content_score`
+
+Se evaluaron `alpha = 0.25` y `alpha = 0.75`, manteniendo constantes factores, épocas, split y semilla.
+
+Se seleccionó **alpha = 0.75** porque obtuvo mayor `HitRate@10` bajo la misma semilla:
+
+- alpha 0.75: **HitRate@10 = 0.03748**, cobertura = **7.72%**.
+- alpha 0.25: **HitRate@10 = 0.03237**, cobertura = **10.60%**.
+
+La decisión prioriza el desempeño de ranking observado, aceptando menor cobertura.
 
 ## Métricas offline
 
-Para la popularidad se conserva `reports/popular_top10.csv`, con `count`, `mean` y `weighted_score`.
+Para valoración se utiliza **RMSE**. Para ranking se utiliza **HitRate@10**. La cobertura es la proporción de películas del catálogo completo de **9,742 películas** que aparecen en las recomendaciones.
 
-El Top-10 de popularidad obtenido fue encabezado por *Shawshank Redemption, The (1994)* con un `weighted_score` de **4.395194**, seguido por *Godfather, The (1972)* con **4.242739** y *Fight Club (1999)* con **4.232690**.
+Configuración colaborativa base:
 
-Para el modelo de contenido se utiliza `content_score`, basado en similitud coseno. Las consultas realizadas fueron:
+- RMSE: **1.026418**.
+- HitRate@10: **0.037479**.
+- Cobertura: **7.43%**.
 
-- **Toy Story (1995):** las 10 recomendaciones obtuvieron `1.0` y compartieron `Adventure|Animation|Children|Comedy|Fantasy`.
-- **Pulp Fiction (1994):** 9 recomendaciones obtuvieron `1.0` al compartir `Comedy|Crime|Drama|Thriller`; una obtuvo **0.928515** al compartir tres de esos cuatro géneros.
-- **Titanic (1997):** las 10 recomendaciones obtuvieron `1.0` y compartieron `Drama|Romance`.
+Configuración híbrida seleccionada, alpha 0.75, seed 42:
 
-La película consultada no apareció en ninguno de los tres Top-10.
+- RMSE: **1.026418**.
+- HitRate@10: **0.037479**.
+- Cobertura: **7.72%**.
 
-## Cold start, cobertura y diversidad
+El RMSE permanece igual porque el híbrido modifica el ranking, pero no las predicciones de valoración.
 
-**Cold start:** el recomendador por contenido puede representar una película nueva si dispone de sus géneros, porque no necesita valoraciones históricas para calcular la similitud. Sin embargo, una película sin géneros informativos tendrá una representación limitada.
+## Robustez por semillas
 
-**Cobertura:** el catálogo contiene 9,742 películas y 9,724 tienen valoraciones observadas. Hay 18 películas sin valoraciones observadas. La matriz usuario-película tiene una densidad de **1.70%**, por lo que aproximadamente el **98.3%** de las combinaciones posibles no tienen valoración observada.
+| Seed | Alpha | RMSE | HitRate@10 | Cobertura |
+|---:|---:|---:|---:|---:|
+| 42 | 0.75 | 1.026418 | 0.037479 | 7.72% |
+| 123 | 0.75 | 1.026084 | 0.028961 | 6.96% |
+| 2024 | 0.75 | 1.026561 | 0.035775 | 7.46% |
 
-**Diversidad:** las consultas muestran un riesgo de baja diversidad cuando muchas películas comparten exactamente los mismos géneros. En Toy Story y Titanic se observan listas completas con `content_score = 1.0`, lo que evidencia recomendaciones muy homogéneas.
+Los resultados muestran variación en el ranking entre semillas, mientras el RMSE permanece alrededor de 1.026.
 
-## Riesgos y monitoreo
+## Cold start
 
-El principal riesgo observado es la **sobre-especialización**: el modelo puede concentrar el Top-k en películas con exactamente los mismos géneros que la consulta.
+Para un usuario nuevo sin historial se utiliza un fallback basado en popularidad y se marca la salida como **no personalizada**. Para usuarios con historial se generan recomendaciones híbridas.
 
-También existen empates frecuentes porque el modelo utiliza un conjunto reducido de características. Un `content_score` de `1.0` no implica igualdad de películas ni predice satisfacción del usuario; indica máxima similitud dentro de las características de género utilizadas.
+## Cobertura y diversidad
 
-El dataset presenta además una matriz de valoraciones muy dispersa y sesgos derivados de los usuarios e interacciones observadas en MovieLens. Por estas razones, los resultados deben interpretarse como evidencia experimental y no como predicciones universales de preferencias.
+La configuración híbrida seleccionada alcanzó **7.72%** de cobertura, mientras alpha 0.25 alcanzó **10.60%**.
+
+Una cobertura mayor no implica mejores recomendaciones; debe analizarse junto con HitRate@10.
+
+El modelo de contenido presenta riesgo de sobre-especialización porque películas con los mismos géneros pueden obtener similitud coseno de **1.0**.
+
+## Costo computacional y Green AI
+
+La configuración seleccionada utiliza 20 factores y 12 épocas.
+
+Para seed 42:
+
+- Tiempo de entrenamiento: aproximadamente **11.35 segundos**.
+- Tamaño de los factores almacenados: aproximadamente **1.57 MiB**.
+
+Las tres semillas con alpha 0.75 presentaron tiempos entre aproximadamente **11.19 y 11.35 segundos**.
+
+La selección no utiliza automáticamente el mayor modelo; se mantiene una configuración moderada y se compara desempeño, cobertura y costo.
+
+## Riesgos y mitigación
+
+- **Dominancia de popularidad:** el fallback puede concentrar recomendaciones en películas muy activas. Se declara explícitamente cuándo la salida no es personalizada.
+- **Filtro burbuja y sobre-especialización:** el contenido puede producir listas homogéneas. Se evalúa cobertura junto con HitRate@10 y se combina con colaboración.
+- **Sesgo de selección:** MovieLens representa usuarios e interacciones observadas, no a la población general. Los resultados se interpretan como evidencia experimental.
+- **Ausencia de información demográfica:** limita el análisis de representatividad por subgrupos.
+- **Bucle de retroalimentación:** un sistema desplegado podría reforzar preferencias observadas. En este laboratorio la evaluación es offline y no se presenta como decisión autónoma.
+
+## Limitaciones
+
+- La matriz usuario-película es altamente dispersa.
+- El modelo colaborativo depende del historial disponible.
+- El modelo de contenido depende de la calidad de los géneros.
+- El híbrido utiliza candidatos generados por el componente colaborativo.
+- RMSE y HitRate@10 son métricas offline y no sustituyen una evaluación con usuarios reales.
+- MovieLens Latest Small es un dataset de desarrollo y los resultados dependen de su versión.
+
+## Archivos de evidencia
+
+- `reports/popular_top10.csv`
+- `reports/content_recommendations.csv`
+- `reports/collaborative_metrics.json`
+- `reports/hybrid_metrics.json`
+- `reports/pareto_comparison.csv`
+- `reports/cold_start_fallback.csv`
+
+## Conclusión
+
+El laboratorio muestra una arquitectura reproducible que combina popularidad, contenido y colaboración.
+
+La configuración seleccionada utiliza **20 factores, 12 épocas y alpha 0.75**, priorizando HitRate@10 frente a alpha 0.25 bajo el mismo experimento.
+
+El resultado es una evaluación offline sobre MovieLens Latest Small, con limitaciones derivadas de dispersión, sesgo de selección, sobre-especialización y ausencia de interacción real con usuarios.

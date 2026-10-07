@@ -1,38 +1,42 @@
 # INF-8239 — Unidad 03 — Sistemas recomendadores
 
-**Asignatura:** INF-8239 Ciencia de Datos II  
-**Laboratorio:** U03.LAB08 — MovieLens, popularidad y recomendación por contenido  
+**Asignatura:** INF-8239 Ciencia de Datos II
+**Laboratorios:** U03.LAB08 y U03.LAB09
+**Tema:** MovieLens, popularidad, contenido, factorización colaborativa y recomendación híbrida
 **Autor académico:** Edwin Ramón José Nolasco
 
 ## 1. Objetivo
 
-Este proyecto implementa un flujo reproducible de recomendación sobre el conjunto MovieLens Latest Small. Se construyen y auditan los datos, se calcula un baseline de popularidad suavizada y se desarrolla un recomendador por contenido basado en los géneros de las películas.
+Este proyecto implementa un flujo reproducible de recomendación sobre **MovieLens Latest Small**.
 
-El sistema tiene finalidad académica y experimental. Una recomendación por similitud de contenido no representa una predicción de preferencia individual.
+El laboratorio desarrolla y compara cuatro estrategias:
+
+1. Popularidad suavizada.
+2. Recomendación por contenido.
+3. Factorización colaborativa.
+4. Recomendación híbrida.
+
+LAB09 incorpora además una división temporal, evaluación de ratings y ranking, análisis de cobertura, cold start, comparación de configuraciones y costo computacional.
+
+El sistema tiene finalidad académica y experimental. Una recomendación no representa una predicción universal de satisfacción individual.
 
 ## 2. Estructura del proyecto
 
 ```text
 data/raw/              Dataset MovieLens descargado
-
 docs/                   Dataset Card y System Card
-
 reports/                Resultados reproducibles
-
 scripts/                Descarga, auditoría y experimentos
-
 src/inf8239_u03/        Código reutilizable
-
 tests/                  Pruebas automatizadas
-
 app/                    Aplicación Streamlit
 ```
 
 ## 3. Requisitos
 
-- Python 3.12
-- `uv`
-- Dependencias definidas en `pyproject.toml`
+* Python 3.12
+* `uv`
+* Dependencias definidas en `pyproject.toml`
 
 Instalación:
 
@@ -40,6 +44,8 @@ Instalación:
 uv python install 3.12
 uv sync
 ```
+
+No se crea un segundo entorno para LAB09 y no se descarga una segunda copia de MovieLens.
 
 ## 4. Pruebas
 
@@ -49,27 +55,27 @@ La suite completa se ejecuta con:
 uv run pytest -q
 ```
 
-Resultado verificado:
+Resultado verificado antes de LAB09:
 
 ```text
 7 passed
 ```
 
-También se verificaron específicamente los contratos de datos y contenido:
+Para LAB09 también se verificaron específicamente los componentes de factorización y métricas:
 
 ```bash
-uv run pytest tests/test_data.py tests/test_content.py -q
+uv run pytest tests/test_matrix_factorization.py tests/test_metrics.py -q
 ```
 
 Resultado verificado:
 
 ```text
-4 passed
+3 passed
 ```
 
 ## 5. Dataset MovieLens
 
-Se utiliza **MovieLens Latest Small** de GroupLens.
+Se utiliza **MovieLens Latest Small (`ml-latest-small`)** de GroupLens.
 
 Descarga:
 
@@ -83,7 +89,7 @@ Auditoría:
 uv run python scripts/audit_data.py
 ```
 
-La descarga utilizada presentó el siguiente SHA-256:
+SHA-256 de la descarga utilizada:
 
 ```text
 696d65a3dfceac7c45750ad32df2c259311949efec81f0f144fdfb91ebc9e436
@@ -91,21 +97,29 @@ La descarga utilizada presentó el siguiente SHA-256:
 
 La versión auditada contiene:
 
-- 610 usuarios.
-- 9,742 películas en el catálogo.
-- 9,724 películas con al menos una valoración.
-- 100,836 valoraciones.
-- Rango de valoración: 0.5–5.0.
-- Media: 3.501557.
-- Mediana: 3.5.
-- Desviación estándar: 1.042529.
-- Densidad usuario-película: 0.016968, aproximadamente 1.70%.
+* 610 usuarios.
+* 9,742 películas en el catálogo.
+* 9,724 películas con al menos una valoración.
+* 100,836 valoraciones.
+* Rango de valoración: 0.5–5.0.
+* Media: 3.501557.
+* Mediana: 3.5.
+* Desviación estándar: 1.042529.
+* Densidad usuario-película: 0.016968, aproximadamente 1.70%.
 
 Los datos originales se descargan mediante el script y no se editan manualmente.
 
+La información detallada del dataset se encuentra en:
+
+```text
+docs/DATASET_CARD.md
+```
+
 ## 6. Baseline de popularidad
 
-La popularidad se calcula mediante una media suavizada que combina la media de cada película con la media global y considera la cantidad de valoraciones. El umbral mínimo se obtiene mediante el percentil 80 del número de valoraciones.
+La popularidad se calcula mediante una media suavizada que combina la media de cada película con la media global y considera la cantidad de valoraciones.
+
+El umbral mínimo se obtiene mediante el percentil 80 del número de valoraciones.
 
 Ejecutar:
 
@@ -135,11 +149,11 @@ Proceso:
 
 1. Los géneros separados por `|` se transforman en texto.
 2. Se construye una representación TF-IDF.
-3. Se calcula similitud coseno entre la película consultada y el catálogo.
-4. Se excluye la propia película consultada.
+3. Se calcula similitud coseno.
+4. Se excluye la película consultada.
 5. Se devuelve el Top-10.
 
-El resultado reproducible de la consulta principal se guarda en:
+El resultado reproducible se guarda en:
 
 ```text
 reports/content_recommendations.csv
@@ -149,19 +163,225 @@ reports/content_recommendations.csv
 
 **Toy Story (1995)**
 
-Las 10 recomendaciones obtuvieron una similitud de 1.0 y compartieron los géneros `Adventure|Animation|Children|Comedy|Fantasy`.
+Las 10 recomendaciones obtuvieron similitud 1.0 y compartieron:
+
+```text
+Adventure|Animation|Children|Comedy|Fantasy
+```
 
 **Pulp Fiction (1994)**
 
-Las recomendaciones incluyeron *Confessions of a Dangerous Mind (2002)*, *Fargo (1996)* e *In Bruges (2008)*. Nueve recomendaciones compartieron exactamente `Comedy|Crime|Drama|Thriller` y una obtuvo 0.928515 al compartir tres de esos cuatro géneros.
+Nueve recomendaciones compartieron exactamente:
+
+```text
+Comedy|Crime|Drama|Thriller
+```
+
+con similitud 1.0. Una recomendación obtuvo 0.928515 al compartir tres de esos cuatro géneros.
 
 **Titanic (1997)**
 
-Las 10 recomendaciones compartieron `Drama|Romance` y obtuvieron una similitud de 1.0.
+Las 10 recomendaciones compartieron:
+
+```text
+Drama|Romance
+```
+
+con similitud 1.0.
 
 En las tres consultas la película utilizada como referencia no apareció en su propio Top-10.
 
-## 8. Aplicación Streamlit
+## 8. Factorización colaborativa
+
+LAB09 incorpora una factorización matricial mediante factores latentes entrenados con descenso de gradiente estocástico.
+
+La configuración base es:
+
+* Factores: **20**.
+* Épocas: **12**.
+* Seed: **42**.
+* Learning rate: `0.01`.
+* Regularización: `0.05`.
+
+La división de evaluación es temporal:
+
+1. Se ordenan las valoraciones por usuario y timestamp.
+2. La última valoración de cada usuario se reserva como prueba.
+3. Las restantes se utilizan para entrenamiento.
+
+El experimento colaborativo se ejecuta con:
+
+```bash
+uv run python scripts/lab09_collaborative.py
+```
+
+El resultado se guarda en:
+
+```text
+reports/collaborative_metrics.json
+```
+
+Resultado obtenido:
+
+* RMSE: **1.026418**.
+* HitRate@10: **0.037479**.
+* Cobertura del catálogo: **7.43%**.
+* Tiempo de entrenamiento: aproximadamente **11.34 segundos**.
+* Tamaño de factores: aproximadamente **1.57 MiB**.
+
+## 9. Recomendación híbrida
+
+El modelo híbrido combina la señal colaborativa con la similitud de contenido.
+
+La puntuación utilizada es:
+
+```text
+hybrid_score = alpha * collaborative_score + (1 - alpha) * content_score
+```
+
+Se evaluaron dos valores de `alpha` manteniendo constantes:
+
+* split temporal;
+* factores;
+* épocas;
+* seed.
+
+Configuraciones evaluadas:
+
+```bash
+uv run python scripts/lab09_hybrid.py --factors 20 --epochs 12 --alpha 0.25
+uv run python scripts/lab09_hybrid.py --factors 20 --epochs 12 --alpha 0.75
+```
+
+### Comparación
+
+| Alpha |     RMSE | HitRate@10 | Cobertura |
+| ----: | -------: | ---------: | --------: |
+|  0.25 | 1.026418 |   0.032368 |    10.60% |
+|  0.75 | 1.026418 |   0.037479 |     7.72% |
+
+Se selecciona **alpha = 0.75** porque obtiene mayor HitRate@10 bajo la misma semilla.
+
+La configuración alpha 0.25 presenta mayor cobertura, por lo que existe un intercambio entre desempeño de ranking y cobertura.
+
+El RMSE permanece igual porque alpha modifica el ranking híbrido, no las predicciones de valoración del modelo colaborativo.
+
+El resultado principal se guarda en:
+
+```text
+reports/hybrid_metrics.json
+```
+
+## 10. Robustez por semillas
+
+Para analizar la variabilidad se ejecutaron tres semillas con `alpha = 0.75`:
+
+| Seed | Alpha |     RMSE | HitRate@10 | Cobertura | Tiempo aprox. |
+| ---: | ----: | -------: | ---------: | --------: | ------------: |
+|   42 |  0.75 | 1.026418 |   0.037479 |     7.72% |       11.35 s |
+|  123 |  0.75 | 1.026084 |   0.028961 |     6.96% |       11.19 s |
+| 2024 |  0.75 | 1.026561 |   0.035775 |     7.46% |       11.29 s |
+
+Los resultados muestran variación en HitRate@10 entre semillas, mientras que el RMSE permanece alrededor de 1.026.
+
+La comparación reproducible se almacena en:
+
+```text
+reports/pareto_comparison.csv
+```
+
+La tabla permite analizar conjuntamente desempeño de ranking, cobertura, tiempo y tamaño del modelo.
+
+## 11. Tres perfiles y cold start
+
+Se evaluaron tres perfiles:
+
+* **Historial pequeño:** usuario 595.
+* **Historial amplio:** usuario 414.
+* **Usuario nuevo:** usuario 611.
+
+Los usuarios con historial reciben recomendaciones híbridas.
+
+Para el usuario nuevo no existe historial disponible, por lo que el sistema utiliza un fallback de popularidad.
+
+La salida del usuario nuevo se marca explícitamente como:
+
+```text
+personalized = false
+method = popularidad
+```
+
+Esto evita presentar una lista de popularidad como si fuera una recomendación personalizada.
+
+El fallback se conserva en:
+
+```text
+reports/cold_start_fallback.csv
+```
+
+## 12. Cobertura, diversidad y riesgos
+
+La cobertura se calcula sobre el catálogo completo de **9,742 películas**.
+
+La configuración híbrida seleccionada alcanza **7.72%** de cobertura.
+
+Alpha 0.25 alcanza **10.60%**, pero presenta menor HitRate@10.
+
+La cobertura no debe interpretarse aisladamente: una mayor cobertura no implica necesariamente mejores recomendaciones.
+
+El modelo de contenido presenta riesgo de sobre-especialización. Por ejemplo, Toy Story y Titanic generaron listas completas con similitud 1.0 debido a que muchas películas comparten exactamente los mismos géneros.
+
+## 13. Costo computacional y Green AI
+
+La configuración seleccionada utiliza:
+
+* 20 factores.
+* 12 épocas.
+* aproximadamente 11.35 segundos de entrenamiento para seed 42.
+* aproximadamente 1.57 MiB de factores almacenados.
+
+Las tres semillas con alpha 0.75 tuvieron tiempos aproximados entre 11.19 y 11.35 segundos.
+
+No se selecciona automáticamente el modelo más grande. La configuración se mantiene moderada y se compara considerando:
+
+* desempeño;
+* cobertura;
+* tiempo;
+* tamaño del modelo.
+
+Esto permite documentar una decisión compatible con el principio de Green AI.
+
+## 14. Riesgos principales y mitigaciones
+
+### Dominancia de popularidad
+
+El fallback puede concentrar las recomendaciones en películas con alta actividad.
+
+**Mitigación:** declarar explícitamente cuándo la salida es no personalizada.
+
+### Filtro burbuja y sobre-especialización
+
+El contenido puede producir listas muy homogéneas.
+
+**Mitigación:** combinar señales y evaluar cobertura además de HitRate@10.
+
+### Sesgo de selección
+
+MovieLens representa las interacciones observadas y no a la población general de espectadores.
+
+**Mitigación:** interpretar los resultados como evidencia experimental.
+
+### Ausencia de información demográfica
+
+No se utilizan datos demográficos y, por tanto, no se realizan afirmaciones sobre representatividad por subgrupos.
+
+### Bucle de retroalimentación
+
+Un sistema desplegado podría reforzar las preferencias ya observadas.
+
+**Mitigación:** este laboratorio utiliza evaluación offline y no presenta el sistema como mecanismo autónomo de decisión.
+
+## 15. Aplicación Streamlit
 
 Ejecutar:
 
@@ -169,45 +389,48 @@ Ejecutar:
 uv run streamlit run app/streamlit_app.py
 ```
 
-La interfaz permite seleccionar una película y obtener diez recomendaciones basadas en similitud de géneros.
+La interfaz permite seleccionar una película y obtener recomendaciones basadas en contenido.
 
-La aplicación informa explícitamente que el método utilizado es TF-IDF de géneros con similitud coseno y advierte sobre el riesgo de sobre-especialización.
+La aplicación informa que el método de contenido utiliza TF-IDF de géneros con similitud coseno.
 
-## 9. Cold start, cobertura y diversidad
+## 16. Limitaciones
 
-El modelo de contenido no necesita historial de valoraciones para calcular similitud si la película tiene géneros registrados. Por ello puede representar una película nueva con información de contenido disponible.
+* La matriz usuario-película es altamente dispersa.
+* El modelo colaborativo depende del historial disponible.
+* El modelo de contenido depende de la calidad de los géneros.
+* El híbrido utiliza candidatos generados por el componente colaborativo.
+* RMSE y HitRate@10 son métricas offline.
+* Las métricas offline no sustituyen una evaluación con usuarios reales.
+* MovieLens Latest Small es un dataset de desarrollo.
+* Los resultados dependen de la versión concreta del dataset.
+* No se utilizan atributos demográficos ni información sensible.
 
-Sin embargo, una película sin características de género informativas tendrá una representación limitada. Además, el recomendador no personaliza las recomendaciones para un usuario individual.
+## 17. Evidencia reproducible
 
-El catálogo contiene 9,742 películas y 18 no presentan valoraciones observadas. La matriz usuario-película tiene una densidad aproximada de 1.70%, lo que evidencia una alta dispersión.
-
-Las consultas realizadas muestran riesgo de **sobre-especialización**: cuando varias películas comparten exactamente los mismos géneros, pueden aparecer numerosos empates con similitud 1.0. Esto reduce la diversidad del Top-k.
-
-## 10. Limitaciones y riesgos
-
-- La similitud de géneros no predice satisfacción individual.
-- Las recomendaciones pueden ser muy homogéneas.
-- La representación utiliza únicamente información de género.
-- La matriz de valoraciones es altamente dispersa.
-- MovieLens Latest Small es un dataset de desarrollo y sus contenidos pueden cambiar.
-- Los resultados deben interpretarse según la versión concreta del dataset utilizada.
-- No se realizan inferencias sobre atributos sensibles de los usuarios.
-
-## 11. Documentación
-
-La descripción del dataset se encuentra en:
+Los principales resultados se encuentran en:
 
 ```text
-docs/DATASET_CARD.md
+reports/popular_top10.csv
+reports/content_recommendations.csv
+reports/collaborative_metrics.json
+reports/hybrid_metrics.json
+reports/pareto_comparison.csv
+reports/cold_start_fallback.csv
 ```
 
-La descripción del sistema y sus riesgos se encuentra en:
+La documentación del sistema se encuentra en:
 
 ```text
 docs/SYSTEM_CARD.md
 ```
 
-## 12. Requisitos para publicación
+La documentación del dataset se encuentra en:
+
+```text
+docs/DATASET_CARD.md
+```
+
+## 18. Requisitos para publicación
 
 Las dependencias exportadas para entornos de publicación se encuentran en:
 
@@ -217,24 +440,35 @@ requirements-cloud.txt
 
 El dataset descargado no se versiona en Git. Se reproduce mediante el script de descarga.
 
-## 13. Uso académico del dataset
+## 19. Uso académico del dataset
 
-MovieLens se utiliza bajo las condiciones establecidas por GroupLens. El dataset está destinado a investigación y desarrollo según sus condiciones de uso y no debe tratarse como un conjunto de datos representativo de toda la población de espectadores.
+MovieLens se utiliza bajo las condiciones establecidas por GroupLens. El dataset está destinado a investigación y desarrollo según sus condiciones de uso.
 
 La cita correspondiente es:
 
 Harper, F. M., & Konstan, J. A. (2015). *The MovieLens Datasets: History and Context*. ACM Transactions on Interactive Intelligent Systems, 5(4), 19:1–19:19. DOI: 10.1145/2827872.
 
-## 14. Conclusión del laboratorio
+## 20. Conclusión
 
-**Resultado principal:** se implementó un pipeline reproducible de popularidad y recomendación por contenido sobre MovieLens.
+El proyecto implementa un pipeline reproducible que parte de un baseline de popularidad y un recomendador por contenido y posteriormente incorpora factorización colaborativa y una estrategia híbrida.
 
-**Evidencia utilizada:** auditoría del dataset, hash SHA-256, Top-10 de popularidad, tres consultas de contenido, aplicación Streamlit y siete pruebas automatizadas.
+La configuración seleccionada para LAB09 utiliza:
 
-**Qué representa la similitud:** cercanía entre los géneros registrados de dos películas; no representa una predicción de gusto individual.
+* **20 factores**.
+* **12 épocas**.
+* **alpha = 0.75**.
+* **seed = 42**.
 
-**Problema de cold start observado:** el modelo de contenido puede utilizar información de géneros sin historial de valoraciones, pero depende de disponer de características de contenido.
+La selección se basa en la comparación offline con alpha 0.25 y en la evaluación de tres semillas.
 
-**Riesgo de sobre-especialización:** las recomendaciones pueden concentrarse en películas con exactamente los mismos géneros y producir empates con similitud 1.0.
+El resultado híbrido seleccionado obtiene:
 
-**Siguiente experimento:** incorporar señales adicionales y evaluar estrategias que aumenten diversidad y personalización sin perder reproducibilidad.
+* RMSE: **1.026418**.
+* HitRate@10: **0.037479**.
+* Cobertura: **7.72%**.
+* Tiempo de entrenamiento: aproximadamente **11.35 segundos**.
+* Tamaño de factores: aproximadamente **1.57 MiB**.
+
+La evidencia muestra un intercambio entre desempeño de ranking y cobertura. También se documentan explícitamente cold start, sobre-especialización, sesgo de selección, popularidad dominante y costo computacional.
+
+El sistema debe interpretarse como un experimento reproducible de recomendación sobre MovieLens Latest Small y no como un predictor universal de preferencias.
