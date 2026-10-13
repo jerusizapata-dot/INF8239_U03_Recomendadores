@@ -334,4 +334,10 @@ La cobertura se calcula sobre el catálogo completo de **9,742 películas**.
 
 En la ejecución principal con `seed = 42`, la configuración híbrida seleccionada (`alpha = 0.75`) alcanza **7.72%** de cobertura, mientras que `alpha = 0.25` alcanza **10.60%**.
 
-Al considerar las tres
+Al considerar las tres semillas evaluadas (42, 123 y 2024), la cobertura promedio es de 7.38% para alpha = 0.75 y de 10.14% para alpha = 0.25.
+
+Estos resultados muestran un compromiso entre la precisión de las recomendaciones y la diversidad del catálogo. La configuración alpha = 0.75 obtiene mejores valores de HitRate@10 en las tres semillas, mientras que alpha = 0.25 consigue una mayor cobertura del catálogo.
+
+Por tanto, la configuración seleccionada depende del objetivo del sistema: priorizar la calidad de las recomendaciones evaluada mediante HitRate@10 o favorecer una mayor diversidad de películas recomendadas. Estas métricas deben interpretarse conjuntamente y no como indicadores equivalentes.
+
+La cobertura del catálogo no garantiza por sí sola diversidad temática ni ausencia de sesgos. Por ello, conviene complementar la evaluación con análisis de popularidad, concentración de recomendaciones y posibles efectos sobre los usuarios y los elementos menos conocidos.
